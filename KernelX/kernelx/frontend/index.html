@@ -1,0 +1,260 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KernelX – Powering Smarter Disk Scheduling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--cream:#f3eee4;--paper:#fbf8f1;--ink:#15191c;--ink2:#232a2e;--mute:#5d665f;--line:#d9d1bf;--hot:#ff5a36;--hot2:#e04420;--teal:#0f7a6a;--mint:#46d6b8;--sun:#f6c453;
+ --disp:"Space Grotesk","Segoe UI",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,Consolas,monospace}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--cream);color:var(--ink);font:15px/1.6 var(--disp);-webkit-font-smoothing:antialiased}
+:focus-visible{outline:2px solid var(--hot);outline-offset:2px}
+.shell{max-width:1240px;margin:0 auto;padding:0 28px 60px}
+
+/* nav */
+nav{display:flex;justify-content:space-between;align-items:center;padding:20px 0;gap:14px}
+.logo{display:flex;align-items:center;gap:10px;font:700 24px/1 var(--disp);letter-spacing:-.02em}
+.logo .x{display:grid;place-items:center;width:34px;height:34px;background:var(--ink);color:var(--hot);border-radius:9px;font-size:22px;transform:rotate(-6deg)}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:1.5px solid var(--ink);border-radius:99px;font:600 12.5px var(--mono);background:var(--paper)}
+.pill i{width:8px;height:8px;border-radius:50%;background:#aaa}
+.pill.ok i{background:var(--teal);box-shadow:0 0 0 3px rgba(15,122,106,.2)}
+.pill.bad i{background:var(--hot)}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.5fr 1fr;gap:34px;align-items:end;padding:26px 0 34px;border-bottom:2px solid var(--ink)}
+.eyebrow{font:600 12.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 14px}
+h1{margin:0;font:700 clamp(40px,6.2vw,84px)/.98 var(--disp);letter-spacing:-.045em}
+h1 em{font-style:normal;color:var(--hot);position:relative;white-space:nowrap}
+h1 em::after{content:"";position:absolute;left:0;right:0;bottom:-.02em;height:.09em;background:var(--ink);border-radius:4px}
+.hero p{margin:0;color:var(--mute);font-size:16.5px;max-width:46ch}
+.hero p b{color:var(--ink)}
+
+/* main grid */
+.main{display:grid;grid-template-columns:340px minmax(0,1fr);gap:28px;margin-top:30px;align-items:start}
+.deck{position:sticky;top:16px;background:var(--paper);border:2px solid var(--ink);border-radius:18px;padding:22px;box-shadow:6px 6px 0 var(--ink)}
+.deck h2{margin:0 0 2px;font:700 20px var(--disp);letter-spacing:-.01em}
+.deck .lead{margin:0 0 18px;color:var(--mute);font-size:13.5px}
+.f{margin-bottom:14px}
+label{display:block;font:600 11.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin-bottom:5px}
+input,select,textarea{width:100%;padding:10px 12px;background:#fff;border:1.5px solid var(--ink);border-radius:10px;color:var(--ink);font:500 15px var(--disp);transition:box-shadow .12s}
+textarea{resize:vertical;min-height:64px;font-family:var(--mono);font-size:14px}
+input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(255,90,54,.3)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+small.h{display:block;color:var(--mute);font-size:12px;margin-top:4px}
+button{font:600 14px var(--disp);cursor:pointer;border:1.5px solid var(--ink);background:var(--paper);color:var(--ink);padding:10px 16px;border-radius:10px;transition:transform .1s,background .12s,box-shadow .12s;box-shadow:2px 2px 0 var(--ink)}
+button:hover{background:#fff;transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink)}
+button:active{transform:translate(1px,1px);box-shadow:0 0 0 var(--ink)}
+.go{background:var(--hot);color:#fff;width:100%;padding:13px;font-size:15.5px}
+.go:hover{background:var(--hot2)}
+.mini{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.mini button{padding:8px 6px;font-size:12.5px}
+#err{margin-top:12px;font-size:13px;font-weight:600;color:var(--hot2);min-height:1.2em}
+
+/* right column */
+.stage{min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.kpi{background:var(--paper);border:1.5px solid var(--ink);border-radius:14px;padding:14px 16px}
+.kpi b{display:block;font:700 30px/1.1 var(--disp);letter-spacing:-.03em}
+.kpi span{font:600 11px var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--mute)}
+.kpi.big{background:var(--ink);color:var(--cream)}
+.kpi.big b{color:var(--hot)}.kpi.big span{color:#9aa59d}
+.kpi.good b{color:var(--teal)}
+
+.scope{background:var(--ink);border-radius:18px;padding:18px 18px 16px;color:var(--cream)}
+.scope-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.scope-h h3{margin:0;font:700 18px var(--disp)}
+.scope-h h3 span{color:var(--hot);margin-left:6px}
+.leg{display:flex;gap:16px;flex-wrap:wrap;font:500 11.5px var(--mono);color:#9aa59d}
+.leg i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+canvas{width:100%;height:380px;display:block;background:var(--ink2);border-radius:12px}
+.ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}
+.ctl button{background:var(--ink2);color:var(--cream);border-color:#4a5650;box-shadow:none;padding:8px 14px}
+.ctl button:hover{background:#2f383d;transform:none;box-shadow:none}
+.ctl .go2{background:var(--hot);border-color:var(--hot);color:#fff}
+.ctl label{margin:0 2px 0 12px;color:#9aa59d}
+.ctl input[type=range]{width:120px;padding:0;border:0;background:none;box-shadow:none;accent-color:var(--hot)}
+#expl{margin:14px 0 0;padding:12px 14px;border-left:4px solid var(--hot);background:var(--ink2);border-radius:0 10px 10px 0;color:#c3cbc4;font-size:14px;line-height:1.65}
+#expl b{color:#fff}
+
+/* arena */
+.arena{margin-top:26px;background:var(--paper);border:2px solid var(--ink);border-radius:18px;padding:22px}
+.arena-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.arena-h h3{margin:0;font:700 22px var(--disp);letter-spacing:-.02em}
+#verdict{font-size:14px;color:var(--mute)}#verdict b{color:var(--teal)}
+.row{display:grid;grid-template-columns:78px 1fr 130px;gap:14px;align-items:center;width:100%;text-align:left;padding:9px 10px;margin:0 0 6px;border:1.5px solid transparent;background:transparent;box-shadow:none;border-radius:10px}
+.row:hover{background:#fff;transform:none;box-shadow:none;border-color:var(--line)}
+.row.on{border-color:var(--ink);background:#fff}
+.row .n{font:700 15px var(--mono)}
+.track{height:20px;background:var(--cream);border-radius:6px;overflow:hidden}
+.fill{height:100%;background:var(--ink);border-radius:6px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.row.best .fill{background:var(--teal)}
+.row.on:not(.best) .fill{background:var(--hot)}
+.row .v{font:600 13px var(--mono);text-align:right}
+.row .v em{font-style:normal;color:var(--teal);margin-left:4px}
+
+/* guide */
+.guide{margin-top:44px}
+.guide h3{margin:0 0 4px;font:700 28px var(--disp);letter-spacing:-.03em}
+.guide>p{margin:0 0 20px;color:var(--mute);max-width:70ch}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.card{background:var(--paper);border:1.5px solid var(--ink);border-radius:14px;padding:16px}
+.card h4{margin:0 0 4px;font:700 18px var(--disp);display:flex;justify-content:space-between;align-items:center}
+.card h4 span{font:600 10.5px var(--mono);letter-spacing:.08em;color:var(--teal);background:rgba(15,122,106,.1);padding:3px 8px;border-radius:99px}
+.card p{margin:0;color:var(--mute);font-size:14px}
+.card p b{color:var(--ink)}
+footer{margin-top:44px;padding-top:16px;border-top:2px solid var(--ink);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--mute);font:500 12.5px var(--mono)}
+
+@media(max-width:1020px){.hero{grid-template-columns:1fr}.main{grid-template-columns:1fr}.deck{position:static}.cards{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.shell{padding:0 16px 40px}.kpis{grid-template-columns:1fr 1fr}.cards{grid-template-columns:1fr}.row{grid-template-columns:62px 1fr 96px;gap:8px}.row .v em{display:none}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style></head><body>
+<div class="shell">
+<nav><div class="logo"><span class="x">X</span>Kernel<span style="color:var(--hot)">X</span></div><div class="pill" id="eng"><i></i><span>connecting…</span></div></nav>
+
+<header class="hero">
+ <div><p class="eyebrow">Advanced OS · Disk Scheduling Lab</p>
+  <h1>Powering <em>Smarter</em> Disk Scheduling.</h1></div>
+ <p>Every I/O request makes the read/write head travel. <b>KernelX</b> lets you feed in a request queue, replay the head's journey one step at a time, and see which of six classic algorithms burns the fewest cylinders.</p>
+</header>
+
+<div class="main">
+ <aside class="deck" id="config">
+  <h2>Control Deck</h2><p class="lead">Describe your disk, pick a strategy, hit launch.</p>
+  <div class="f"><label for="req">Pending requests</label><textarea id="req" placeholder="98, 183, 37, 122, 14, 124, 65, 67"></textarea><small class="h">Cylinder numbers separated by commas.</small></div>
+  <div class="f"><label for="alg">Strategy</label><select id="alg"><option value="0">FCFS</option><option value="1">SSTF</option><option value="2">SCAN</option><option value="3">C-SCAN</option><option value="4">LOOK</option><option value="5">C-LOOK</option></select></div>
+  <div class="two"><div class="f"><label for="head">Head position</label><input id="head" type="number"></div>
+   <div class="f"><label for="dir">Sweep towards</label><select id="dir"><option value="1">High ↑</option><option value="0">Low ↓</option></select></div></div>
+  <div class="two"><div class="f"><label for="min">First cylinder</label><input id="min" type="number" value="0"></div>
+   <div class="f"><label for="max">Last cylinder</label><input id="max" type="number" value="199"></div></div>
+  <div class="f"><label for="ms">Seek cost (ms / cylinder)</label><input id="ms" type="number" value="1" min="0" step="0.1"></div>
+  <button class="go" id="run">Launch simulation →</button>
+  <div class="mini"><button id="ex">Sample</button><button id="rnd">Shuffle</button><button id="rst">Wipe</button></div>
+  <div id="err" role="alert"></div>
+ </aside>
+
+ <section class="stage" id="sim">
+  <div class="kpis">
+   <div class="kpi big"><b id="k_total">0</b><span>Cylinders crossed</span></div>
+   <div class="kpi"><b id="k_avg">0</b><span>Avg per request</span></div>
+   <div class="kpi"><b id="k_ms">0</b><span>Seek time (ms)</span></div>
+   <div class="kpi good"><b id="k_save">–</b><span>Saved vs FCFS</span></div>
+  </div>
+  <div class="scope">
+   <div class="scope-h"><h3>Head trace<span id="title">–</span></h3>
+    <div class="leg"><span><i style="background:#f3eee4"></i>start</span><span><i style="background:#ff5a36"></i>request served</span><span><i style="background:#46d6b8"></i>edge / jump</span></div></div>
+   <canvas id="cv" width="1100" height="380" aria-label="Line graph of disk head position (cylinder) at every step"></canvas>
+   <div class="ctl"><button class="go2" id="play">▶ Play</button><button id="pause">❚❚ Pause</button><button id="prev">‹ Back</button><button id="next">Next ›</button><button id="sreset">↺ Restart</button>
+    <label for="spd">Speed</label><input id="spd" type="range" min="1" max="10" value="5"></div>
+   <p id="expl">Launch a simulation to start the trace. Tip: ← → step through, space plays or pauses.</p>
+  </div>
+
+  <div class="arena">
+   <div class="arena-h"><h3>Algorithm arena</h3><span id="verdict">Same queue, all six strategies. Tap a bar to replay it.</span></div>
+   <div id="arena"></div>
+  </div>
+ </section>
+</div>
+
+<section class="guide" id="about">
+ <h3>Meet the six strategies</h3>
+ <p>SCAN and C-SCAN run all the way to the disk edge. LOOK and C-LOOK turn back at the last real request. Return jumps count toward the distance, and duplicate requests cost nothing. The maths is done by the C engine (<b>backend/algorithms.c</b>); this page only draws the result.</p>
+ <div class="cards">
+  <div class="card"><h4>FCFS <span>FAIR</span></h4><p>Serves requests in arrival order. Simple and fair, but the head can zig-zag wildly.</p></div>
+  <div class="card"><h4>SSTF <span>GREEDY</span></h4><p>Always hops to the nearest waiting request. Short trips, but far-away requests can starve.</p></div>
+  <div class="card"><h4>SCAN <span>ELEVATOR</span></h4><p>Sweeps to one edge, then reverses and sweeps back, like a lift serving floors.</p></div>
+  <div class="card"><h4>C-SCAN <span>CIRCULAR</span></h4><p>Sweeps one way only. At the edge it flies back to the start and sweeps again for even waits.</p></div>
+  <div class="card"><h4>LOOK <span>SMART SCAN</span></h4><p>SCAN that does not waste a trip: it reverses at the last request instead of the disk edge.</p></div>
+  <div class="card"><h4>C-LOOK <span>SMART C-SCAN</span></h4><p>C-SCAN that jumps back from the last request, skipping the empty stretch of disk.</p></div>
+ </div>
+</section>
+<footer><span>KernelX · Powering Smarter Disk Scheduling.</span><span>Built for Advanced Operating Systems</span></footer>
+</div>
+
+<script>
+const $=i=>document.getElementById(i),NAMES=["FCFS","SSTF","SCAN","C-SCAN","LOOK","C-LOOK"],EX="98,183,37,122,14,124,65,67";
+const COL={hot:"#ff5a36",mint:"#46d6b8",cream:"#f3eee4",grid:"rgba(243,238,228,.12)",mute:"#9aa59d"};
+let engine=null,run=null,all=[],idx=0,timer=null;
+
+/* ---------- engine: C server API first, optional WebAssembly fallback ---------- */
+function badge(cls,txt){const e=$("eng");e.className="pill "+cls;e.lastChild.textContent=txt}
+async function initEngine(){
+ try{const r=await fetch("/api/health",{cache:"no-store"});if(r.ok){
+  const post=async(u,c,extra)=>{const x=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...c,...extra})});return x.json()};
+  const h=await r.json().catch(()=>({}));engine={name:h.engine?h.engine:"C engine",many:c=>post("/api/compare",c,{})};return}}catch(e){}
+ try{await new Promise((ok,no)=>{const s=document.createElement("script");s.src="kernelx.js";s.onload=ok;s.onerror=no;document.head.appendChild(s)});
+  const m=await KernelXModule();
+  const one=async(id,c)=>{const p=m.ccall("kernelx_run","number",["number","string","number","number","number","number"],[id,c.req,c.head,c.min,c.max,c.dir]);const s=m.UTF8ToString(p);m.ccall("kernelx_free",null,["number"],[p]);return JSON.parse(s)};
+  engine={name:"C engine (WebAssembly)",many:async c=>Promise.all(NAMES.map((_,i)=>one(i,c)))};return}catch(e){}
+ engine=null}
+
+/* ---------- helpers ---------- */
+function cfg(){return{req:$("req").value,head:+$("head").value,min:+$("min").value,max:+$("max").value,dir:+$("dir").value}}
+function validate(){const c=cfg();if(!c.req.trim())return"Enter at least one pending request.";if(!/^[\d,\s-]+$/.test(c.req))return"Requests must be whole numbers like 98, 183, 37.";
+ if($("head").value===""||[c.head,c.min,c.max].some(isNaN))return"Head position and both cylinder limits need a number.";if(c.min>=c.max)return"First cylinder must be smaller than last cylinder.";
+ if(c.head<c.min||c.head>c.max)return"Head position must sit inside the cylinder range.";return""}
+function guard(){if(!engine){$("err").textContent="Engine offline. Start KernelX with run.bat (Windows) or ./run.sh, then retry.";return false}const e=validate();$("err").textContent=e;return!e}
+function count(el,v,d=0){const t=+v,s=performance.now();(function f(n){const k=Math.min(1,(n-s)/450);el.textContent=(t*k).toFixed(d);if(k<1)requestAnimationFrame(f);else el.textContent=t.toFixed(d)})(s)}
+function cum(k){let t=0;for(let i=0;i<=k;i++)t+=run.steps[i].s;return t}
+function fit(){const cv=$("cv"),r=window.devicePixelRatio||1,w=cv.clientWidth||1100;cv.width=Math.round(w*r);cv.height=Math.round(380*r)}
+
+/* ---------- actions ---------- */
+async function launch(){
+ if(!guard())return;let res;
+ try{res=await engine.many(cfg())}catch(e){$("err").textContent="Lost the engine connection. Is run.bat / run.sh still open?";return}
+ const bad=Array.isArray(res)?res.find(x=>x.error):res;if(!Array.isArray(res)||bad){$("err").textContent=(bad&&bad.error)||"Unexpected engine reply.";return}
+ all=res;pick(+$("alg").value,true)}
+function pick(i,fresh){
+ run=all[i];if(!run)return;$("alg").value=i;idx=0;stop();$("err").textContent="";
+ $("title").textContent=run.name;
+ count($("k_total"),run.total);count($("k_avg"),run.avg,2);count($("k_ms"),run.total*(+$("ms").value||0),1);
+ const f=all[0].total,sv=f?Math.round((1-run.total/f)*100):0;$("k_save").textContent=i===0?"baseline":(sv>0?sv+"%":sv===0?"same":"+"+(-sv)+"% worse");
+ arena();draw()}
+function arena(){
+ const t=all.map(a=>a.total),mx=Math.max(...t,1),mn=Math.min(...t),sel=+$("alg").value,f=all[0].total;
+ $("arena").innerHTML=all.map((a,i)=>{const sv=f?Math.round((1-a.total/f)*100):0;
+  return`<button class="row${a.total===mn?" best":""}${i===sel?" on":""}" data-i="${i}"><span class="n">${a.name}</span><span class="track"><span class="fill" style="display:block;width:${Math.max(2,a.total/mx*100)}%"></span></span><span class="v">${a.total}${i&&sv>0?"<em>−"+sv+"%</em>":""}</span></button>`}).join("");
+ const bi=t.indexOf(mn),ties=t.filter(x=>x===mn).length;
+ $("verdict").innerHTML=`Winner for this queue: <b>${all[bi].name}</b> with ${mn} cylinders${ties>1?" (tied)":""}. Tap a bar to replay it.`}
+function draw(){
+ const cv=$("cv"),g=cv.getContext("2d"),r=window.devicePixelRatio||1;g.setTransform(r,0,0,r,0,0);const W=cv.width/r,H=380;g.clearRect(0,0,W,H);
+ g.font="11px JetBrains Mono,Consolas,monospace";
+ if(!run){g.fillStyle=COL.mute;g.textAlign="center";g.fillText("No trace yet. Launch a simulation.",W/2,H/2);g.textAlign="left";return}
+ const L=52,R=22,T=30,B=30,pts=[{p:run.head,v:0,s:0},...run.steps];
+ const X=i=>L+i/Math.max(pts.length-1,1)*(W-L-R),Y=v=>T+(run.max-v)/(run.max-run.min)*(H-T-B);
+ g.lineWidth=1;g.fillStyle=COL.mute;
+ for(let k=0;k<=5;k++){const v=Math.round(run.max-k*(run.max-run.min)/5),y=Y(v);g.strokeStyle=COL.grid;g.beginPath();g.moveTo(L,y);g.lineTo(W-R,y);g.stroke();g.fillText(v,6,y+4)}
+ g.setLineDash([2,5]);g.strokeStyle="rgba(255,90,54,.28)";const seen={};
+ pts.forEach((q,i)=>{if(i&&q.v&&!seen[q.p]){seen[q.p]=1;g.beginPath();g.moveTo(L,Y(q.p));g.lineTo(W-R,Y(q.p));g.stroke()}});g.setLineDash([]);
+ g.fillStyle=COL.mute;g.fillText("step →",W-R-38,H-10);g.fillText("0",L-3,H-10);
+ const last=Math.min(idx+1,pts.length-1);
+ for(let i=1;i<=last;i++){g.lineWidth=2.2;g.strokeStyle=pts[i].v?COL.hot:COL.mint;g.setLineDash(pts[i].v?[]:[6,5]);g.beginPath();g.moveTo(X(i-1),Y(pts[i-1].p));g.lineTo(X(i),Y(pts[i].p));g.stroke()}
+ g.setLineDash([]);const dense=pts.length>26;
+ for(let i=0;i<=last;i++){const x=X(i),y=Y(pts[i].p);g.fillStyle=i==0?COL.cream:pts[i].v?COL.hot:COL.mint;g.beginPath();g.arc(x,y,i==last?6:4.5,0,7);g.fill();
+  if(i==last){g.strokeStyle=COL.cream;g.lineWidth=2;g.beginPath();g.arc(x,y,10,0,7);g.stroke()}
+  if(!dense||i==last||i==0){g.fillStyle=COL.cream;const lbl=String(pts[i].p),w=g.measureText(lbl).width;g.fillText(lbl,Math.min(Math.max(x-w/2,L),W-R-w),y>T+16?y-11:y+19)}}
+ explain()}
+function explain(){if(!run)return;const s=run.steps[idx],prev=idx?run.steps[idx-1].p:run.head,rem=run.steps.slice(idx+1).filter(x=>x.v).length;
+ $("expl").innerHTML=`<b>Move ${idx+1}/${run.steps.length}:</b> cylinder ${prev} → <b>${s.p}</b> (${s.p>=prev?"up":"down"} by ${s.s}). Running total ${cum(idx)}, ${rem} request${rem==1?"":"s"} still waiting. ${s.v?"Cylinder "+s.p+" was requested, so it is served now.":"Nothing is queued here; "+run.name+" goes to this point because of its sweep rule."}`}
+function stop(){clearInterval(timer);timer=null}
+function play(){if(!run)return;stop();if(idx>=run.steps.length-1)idx=0;timer=setInterval(()=>{if(idx>=run.steps.length-1)return stop();idx++;draw()},1100-$("spd").value*100)}
+function step(d){if(run){const n=idx+d;if(n>=0&&n<run.steps.length){idx=n;draw()}}}
+
+/* ---------- wiring ---------- */
+$("run").onclick=async()=>{await launch();if(run&&window.innerWidth<1020)$("sim").scrollIntoView({behavior:"smooth"})};
+$("alg").onchange=()=>{if(all.length)pick(+$("alg").value)};
+$("arena").onclick=e=>{const b=e.target.closest(".row");if(b)pick(+b.dataset.i)};
+$("play").onclick=play;$("pause").onclick=stop;$("next").onclick=()=>step(1);$("prev").onclick=()=>step(-1);$("sreset").onclick=()=>{stop();idx=0;draw()};
+$("spd").oninput=()=>{if(timer)play()};
+$("ex").onclick=()=>{$("req").value=EX;$("head").value=53;$("min").value=0;$("max").value=199;$("dir").value=1;$("err").textContent=""};
+$("rnd").onclick=()=>{const lo=+$("min").value,hi=+$("max").value;if(!(lo<hi))return $("err").textContent="Set the first and last cylinder before shuffling.";
+ $("req").value=Array.from({length:8},()=>lo+Math.floor(Math.random()*(hi-lo+1))).join(",");$("head").value=lo+Math.floor(Math.random()*(hi-lo+1));$("err").textContent=""};
+$("rst").onclick=()=>{stop();run=null;all=[];["req","head"].forEach(i=>$(i).value="");$("min").value=0;$("max").value=199;$("err").textContent="";
+ ["k_total","k_avg","k_ms"].forEach(i=>$(i).textContent=0);$("k_save").textContent="–";$("title").textContent="–";$("arena").innerHTML="";$("verdict").textContent="Same queue, all six strategies. Tap a bar to replay it.";
+ $("expl").textContent="Launch a simulation to start the trace. Tip: ← → step through, space plays or pauses.";draw()};
+document.addEventListener("keydown",e=>{const t=e.target.tagName;if(/INPUT|SELECT|BUTTON|TEXTAREA/.test(t))return;if(e.key==="ArrowRight")step(1);else if(e.key==="ArrowLeft")step(-1);else if(e.key===" "){e.preventDefault();timer?stop():play()}});
+$("req").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();launch()}});
+["head","min","max"].forEach(i=>$(i).addEventListener("keydown",e=>{if(e.key==="Enter")launch()}));
+window.addEventListener("resize",()=>{fit();draw()});
+$("ex").click();fit();draw();
+initEngine().then(async()=>{if(engine){badge("ok",engine.name);await launch()}else{badge("bad","engine offline");$("err").textContent="No engine found. Start KernelX with run.bat or ./run.sh, or build the WebAssembly version (see README)."}});
+</script></body></html>
